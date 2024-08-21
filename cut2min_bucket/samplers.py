@@ -1,6 +1,5 @@
 from torch.utils.data import *
 import math
-import numpy as np
 import torch
 
 
@@ -111,44 +110,4 @@ class DistributedBucketSampler(DistributedSampler):
 
     def __len__(self):
         return self._len
-    
 
-
-class CutToMinCollater(object):
-    def __init__(self, index_or_key = None):
-        self.ix_or_key = index_or_key
-
-    def __call__(self, batch):
-        first_sample = batch[0]
-        if isinstance(first_sample, list):
-            try:
-                first_sample[self.ix_or_key]
-            except:
-                raise ValueError("If batch is a list of objects, `index_or_key` should be an integer indexing into that list.")
-            
-            tocut = [sample.pop(self.ix_or_key) for sample in batch]
-            collated_batch = default_collate(batch)
-            collated_batch.insert(self.ix_or_key, default_collate(self._cut_to_uniform_size(tocut)))
-            return collated_batch
-
-        elif isinstance(first_sample, dict):
-            try:
-                first_sample[self.ix_or_key]
-            except:
-                raise ValueError("If batch is a dict of objects, `index_or_key` should be a key in that dict")
-            
-            tocut = [sample.pop(self.ix_or_key) for sample in batch]
-            collated_batch = default_collate(batch)
-            collated_batch[self.ix_or_key] = default_collate(self._cut_to_uniform_size(tocut))
-            return collated_batch
-        else:
-            if self.ix_or_key is not None:
-                raise ValueError("If batch is not a list or dict of objects, cannot specify an index_or_key")
-            
-            return default_collate(self._cut_to_uniform_size(batch))
-            
-
-        @staticmethod
-        def _cut_to_uniform_size(list_of_objects):
-            min_len = min([b.shape[-1] for b in list_of_objects])
-            return [b[..., :min_len] for b in list_of_objects]
