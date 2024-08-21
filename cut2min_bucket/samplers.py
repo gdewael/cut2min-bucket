@@ -18,6 +18,28 @@ def _partitions_to_len(n_samples, n_partitions, batch_size):
 
 
 class BucketBatchSampler(BatchSampler):
+    """BucketBatchSampler.
+    See https://gdewael.github.io/blog/flashattnvarlen/ for explanation.
+
+    Parameters
+    ----------
+    dataset : torch.utils.data.Dataset or any compatible object.
+        PyTorch Dataset. Either a torch.utils.data.Dataset itself or any object that has __len__ or __getitem__ implemented.
+    seqlens : list, 1D np.ndarray, or 1D torch.tensor
+        All sequence lengths as integers. Should have the same length as `dataset`.
+    batch_size: int.
+        Mini batch size
+    n_partitions: int, optional
+        Before sorting samples by size, partition dataset into this many subsets.
+        Increase the number of partitions to incease stochasticity of data sampling.
+        If put to 1, samples will be grouped together the same way each epoch.
+        Default = 100.
+    indices: list, optional
+        Used in Distributed version. Subsets the provided dataset
+        Default = None.
+    drop_last: boolean, optional
+        In every partition, whether to drop the last batch which could not be fully "filled" to the batch size. Default = False.
+    """
     def __init__(
         self,
         dataset,
@@ -70,10 +92,35 @@ class BucketBatchSampler(BatchSampler):
         return self._len
     
 
-class DistributedBucketSampler(DistributedSampler):
+class DistributedBucketBatchSampler(DistributedSampler):
+    """DistributedBucketBatchSampler.
+    See https://gdewael.github.io/blog/flashattnvarlen/ for explanation.
+
+    Parameters
+    ----------
+    dataset : torch.utils.data.Dataset or any compatible object.
+        PyTorch Dataset. Either a torch.utils.data.Dataset itself or any object that has __len__ or __getitem__ implemented.
+    seqlens : list, 1D np.ndarray, or 1D torch.tensor
+        All sequence lengths as integers. Should have the same length as `dataset`.
+    batch_size: int.
+        Mini batch size
+    n_partitions: int, optional
+        Before sorting samples by size, partition dataset into this many subsets.
+        Increase the number of partitions to incease stochasticity of data sampling.
+        If put to 1, samples will be grouped together the same way each epoch.
+    num_replicas: int, optional
+        see https://pytorch.org/docs/stable/data.html#torch.utils.data.distributed.DistributedSampler
+    shuffle: boolean, optional
+        see https://pytorch.org/docs/stable/data.html#torch.utils.data.distributed.DistributedSampler
+    seed: int, optional
+        see https://pytorch.org/docs/stable/data.html#torch.utils.data.distributed.DistributedSampler
+    drop_last: boolean, optional
+        see https://pytorch.org/docs/stable/data.html#torch.utils.data.distributed.DistributedSampler
+    """
     def __init__(
         self,
         dataset,
+        seqlens,
         batch_size,
         n_partitions = 100,
         num_replicas=None,
@@ -93,6 +140,8 @@ class DistributedBucketSampler(DistributedSampler):
 
         self.batch_size = batch_size
         self.n_partitions = n_partitions
+        self.seqlens = seqlens
+        self.drop_last = drop_last
 
         self._len = _partitions_to_len(self.num_samples, n_partitions, batch_size)
     def __iter__(self):
@@ -102,9 +151,11 @@ class DistributedBucketSampler(DistributedSampler):
         # Use it to create a bucketbatchSampler
         batch_sampler = BucketBatchSampler(
             self.dataset,
-            batch_size=self.batch_size,
+            self.seqlens,
+            self.batch_size,
             n_partitions=self.n_partitions,
-            indices = indices
+            indices = indices,
+            drop_last=self.drop_last
             )
         return iter(batch_sampler)
 

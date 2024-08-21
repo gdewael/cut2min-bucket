@@ -4,6 +4,27 @@ import numpy as np
 import torch
 
 class DatasetWrapper(torch.utils.data.Dataset):
+    """Wrapper around PyTorch Datasets.
+    Eliminates padding when calling __getitem__ from the dataset.
+    Provides a collate_fn which should be used as input argument for DataLoader.
+
+    Parameters
+    ----------
+    dataset : torch.utils.data.Dataset or any compatible object.
+        PyTorch Dataset. Either a torch.utils.data.Dataset itself or any object that has __len__ or __getitem__ implemented.
+    seqlens : list, 1D np.ndarray, or 1D torch.tensor
+        All sequence lengths as integers. Should have the same length as `dataset`.
+    index_or_key : int, str, float, tuple, list, optional
+        Indices or keys in the object returned by dataset.__getitem__ that are variable sequence length (length indicated by seqlens) and should be cut to min size.
+        Should be:
+            int: if dataset items are lists, to indicate the index of the variable seq length object in that list
+            str: if dataset items are dicts, to indicate the key of the variable seq length object in that list
+            float: if dataset items are dicts, to indicate the key of the variable seq length object in that list
+            tuple: if dataset items are dicts, to indicate the key of the variable seq length object in that list
+            list of any of the previous: if dataset items are dicts or lists. Same as previous cases, but used when multiple objects should be cut to min size in the batch.
+            None: if dataset items are single objects.
+    """
+    
     def __init__(self, dataset, seqlens, index_or_key = None):
         super().__init__()
         self.dataset = dataset
