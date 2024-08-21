@@ -1,10 +1,20 @@
-# cut2min-bucket
-
-## Motivation and documentation WIP.
+<div align="center">
+<h1>cut2min-bucket</h1>
 
 A PyTorch Batch Sampler that buckets by input length and cuts to min size in batch
 
-This allows to use "vanilla" flash attention, which I have found to be vastly superior.
+[![PyPi Version](https://img.shields.io/pypi/v/cut2min-bucket.svg)](https://pypi.python.org/pypi/cut2min-bucket/)
+[![GitHub license](https://img.shields.io/github/license/gdewael/cut2min-bucket)](https://github.com/gdewael/cut2min-bucket/blob/main/LICENSE)
+
+</div>
+
+This package provides 2 utilities:
+1. `cut2min_bucket.DatasetWrapper` to eliminate padding and cut to min size in batch
+2. `cut2min_bucket.BucketBatchSampler` a batch sampler that buckets by input length.
+
+In addition, we provide a Distributed Data Parallel version of the batch sampler: `cut2min_bucket.DistributedBucketBatchSampler`.
+
+A detailed motivation for this package can be found on [my blog](https://gdewael.github.io/blog/flashattnvarlen/).
 
 
 Simple example:
