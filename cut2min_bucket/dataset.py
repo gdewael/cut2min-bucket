@@ -1,6 +1,6 @@
 from torch.utils.data import *
 import torch
-
+from functools import partial
 
 class DatasetWrapper(torch.utils.data.Dataset):
     """Wrapper around PyTorch Datasets.
@@ -37,8 +37,13 @@ class DatasetWrapper(torch.utils.data.Dataset):
 
     def __len__(self):
         return len(self.dataset)
+    
 
-    def collate_fn(self, batch):
+    def get_composed_collater(self, prior_collater):
+        return partial(self.collate_fn, prior_collater=prior_collater)
+
+    def collate_fn(self, batch, prior_collater=None):
+        if prior_collater is None: prior_collater = default_collate
         first_sample = batch[0]
         if isinstance(first_sample, tuple):
             batch = [list(sample) for sample in batch]
@@ -53,9 +58,9 @@ class DatasetWrapper(torch.utils.data.Dataset):
                     raise ValueError(error_str)
 
                 tocut = [sample.pop(self.ix_or_key) for sample in batch]
-                collated_batch = default_collate(batch)
+                collated_batch = prior_collater(batch)
                 collated_batch.insert(
-                    self.ix_or_key, default_collate(self._cut_to_uniform_size(tocut))
+                    self.ix_or_key, prior_collater(self._cut_to_uniform_size(tocut))
                 )
 
             elif isinstance(self.ix_or_key, list):
@@ -70,10 +75,10 @@ class DatasetWrapper(torch.utils.data.Dataset):
                     for ix_in_, padded_ixes in enumerate(sorted(self.ix_or_key))
                 ]
 
-                collated_batch = default_collate(batch)
+                collated_batch = prior_collater(batch)
                 for padded_ixes, tocut in zip(sorted(self.ix_or_key), tocuts):
                     collated_batch.insert(
-                        padded_ixes, default_collate(self._cut_to_uniform_size(tocut))
+                        padded_ixes, prior_collater(self._cut_to_uniform_size(tocut))
                     )
 
             return collated_batch
@@ -87,8 +92,8 @@ class DatasetWrapper(torch.utils.data.Dataset):
                     raise ValueError(error_str)
 
                 tocut = [sample.pop(self.ix_or_key) for sample in batch]
-                collated_batch = default_collate(batch)
-                collated_batch[self.ix_or_key] = default_collate(
+                collated_batch = prior_collater(batch)
+                collated_batch[self.ix_or_key] = prior_collater(
                     self._cut_to_uniform_size(tocut)
                 )
 
@@ -102,9 +107,9 @@ class DatasetWrapper(torch.utils.data.Dataset):
                     [sample.pop(padded_keys) for sample in batch]
                     for padded_keys in sorted(self.ix_or_key)
                 ]
-                collated_batch = default_collate(batch)
+                collated_batch = prior_collater(batch)
                 for padded_keys, tocut in zip(sorted(self.ix_or_key), tocuts):
-                    collated_batch[padded_keys] = default_collate(
+                    collated_batch[padded_keys] = prior_collater(
                         self._cut_to_uniform_size(tocut)
                     )
 
@@ -115,7 +120,7 @@ class DatasetWrapper(torch.utils.data.Dataset):
                     "If sample is not a list or dict of objects, cannot specify an index_or_key"
                 )
 
-            return default_collate(self._cut_to_uniform_size(batch))
+            return prior_collater(self._cut_to_uniform_size(batch))
 
     @staticmethod
     def _cut_to_uniform_size(list_of_objects):
